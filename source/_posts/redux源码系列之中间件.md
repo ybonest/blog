@@ -10,8 +10,26 @@ redux工作的流程是`dispatch`一个`action`，触发`reducer`，改变`state
 
 <!--more-->
 
+### 中间件的使用
+```js
+import { applyMiddleware, createStore } from 'redux';
+const logger = store => next => action => {
+  console.log('is begin');
+  next(action);
+  console.log('is end');
+}
+const doSomething = store => next => action => {
+  console.log('do something');
+  next(action);
+  console.log('do something end');
+}
+
+const store = createStore(reducer, applyMiddleware(logger, doSomething));
+```
+
 ### 中间件原理
-我们都知道使用`createStore`创建`redux`后返回了`dispatch`函数，正常情况下`dispatch`调用后会直接触发`reducer`。而使用中间件后情况则大不一样，主观上，我们仍在使用`dispatch`，但实际上此`dispatch`已经原本的`dispatch`完全不同了。
+
+我们都知道使用`createStore`创建`redux`后返回了`dispatch`函数，正常情况下`dispatch`调用后会直接触发`reducer`。而使用中间件后情况则大不一样，主观上，我们仍在使用`dispatch`，但实际上此时的`dispatch`已经发生了变化。
 
 首先我们来看一看`createStore`的源码
 
@@ -293,6 +311,3 @@ dispatch = compose(...chain)(store.dispatch)
 其实际执行的就是上述被`compose`处理返回后的函数，这样每一个函数执行的结果作为它前面一个函数的实参传到函数内部，而且`dispatch`是被最后一个函数接受的。本次执行后所有高阶中间件函数只剩了一层函数，这个函数接受最终的`action`。
 
 最后一步，使用了中间件后，外界所得到的就是上步的最后一层函数，当使用`dispatch`时，`action`由外而内，最终传入接受真实`dispatch`的函数，触发`redux`状态改变。
-
-
-
