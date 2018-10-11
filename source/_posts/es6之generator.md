@@ -67,3 +67,82 @@ myG.next().value.then(data => {
 })
 ```
 
+### generator之异步请求简单封装
+
+```js
+function* Genarator() {
+    try {
+        const res = yield getPromise();
+        console.log(res);
+    } catch (error) {
+        console.log(error);
+    }
+    
+}
+
+function getPromise() {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(123);
+        })
+    })
+}
+
+function* getData() {
+    const res = yield axios.get("./mocker.json");
+    console.log(res);
+    return res;
+}
+
+function* getDataTT() {
+    const res = yield* getData();
+    console.log(res);
+}
+
+// 封装函数，传入genertor函数，解析最终结果
+function fork(func) {
+    // 判断是否为generator函数
+    if (!func || func.constructor.name !== 'GeneratorFunction') {
+        throw new Error(func.name + ' must be a generator function');
+    }
+    // 1.调用generator函数
+    const _gen = func();
+    // 2.循环next直至执行完毕
+    let data = null;
+    while (true) {
+        let { value: result, done } = _gen.next();
+        // 根据next结果，分别进行处理
+        data = result;
+        if (done) break;
+        if (!result) continue;
+        if (result.constructor.name === 'Promise') {
+            result.then(data => {
+                // 将异步结果传入generator函数，并赋值给对应的变量
+                _gen.next(data);
+            }).catch(err => {
+                // throw new Error(err);
+                done = _gen.throw(err).done;
+            });
+            return;
+        }
+        if (result.constructor.name === 'GeneratorFunction') {
+            fork(result).then(data => _gen.next(data)).catch(err => {_gen.throw(new Error(err));});
+        }
+        if (result.constructor.name === 'Function') {
+            return _gen.next(result());
+        }
+        if (typeof result === 'object') {
+            return _gen.next(result);
+        }
+        return _gen.next(result);
+        
+    }
+    return new Promise((resolve, reject) => {
+        resolve(data);
+    })
+}
+
+fork(Genarator);
+fork(getData)
+fork(getDataTT)
+```
